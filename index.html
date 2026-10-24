@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Trax House pong locker</title>
+<meta name="description" content="Pong progress and ball collections for viewers who chose to make their page public.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Cormorant+Unicase:wght@500;700&display=swap">
+<style>
+:root{
+  --felt-deep:#0c2a1f; --felt:#123b2c; --felt-lit:#1a5039; --rail:#b8c1c3;
+  --cup:#c8262b; --cup-dark:#7d1519; --rim:#f3efe6; --beer:#e8a33a; --foam:#fbf3dc;
+  --ink:#eef1ea; --muted:#9fb5a8; --faint:#5e7d6d; --gold:#ffca68;
+  --display:'Cormorant Unicase',Georgia,serif; --body:'Barlow Semi Condensed','Arial Narrow',Arial,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{background:var(--felt-deep)}
+body{margin:0;min-height:100vh;color:var(--ink);font:400 18px/1.45 var(--body);
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%,var(--felt-lit),transparent 70%),
+    repeating-linear-gradient(115deg,rgba(255,255,255,.012) 0 2px,transparent 2px 5px),
+    var(--felt-deep)}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--beer);outline-offset:3px;border-radius:4px}
+.wrap{max-width:760px;margin:0 auto;padding:22px 16px 64px}
+
+/* house bar: the aluminum edge of the table */
+.house{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:3px solid var(--rail);box-shadow:0 1px 0 #6d7778}
+.house a{text-decoration:none;display:flex;align-items:baseline;gap:9px;font:700 26px/1 var(--display)}
+.house a span:first-child{color:var(--beer);font:700 30px/1 Georgia,serif}
+.updated{font-size:15px;color:var(--muted);text-align:right;max-width:30ch}
+
+.find{margin:26px 0 8px;display:flex;gap:8px}
+.find input{flex:1;min-width:0;font:500 20px var(--body);color:var(--ink);background:rgba(0,0,0,.28);border:2px solid var(--felt-lit);border-radius:10px;padding:12px 14px}
+.find input::placeholder{color:var(--faint)}
+.find button{font:600 18px var(--body);color:#2a1606;background:var(--beer);border:0;border-radius:10px;padding:0 18px;cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:0;list-style:none}
+.chips a{display:block;text-decoration:none;padding:6px 12px;border-radius:999px;background:rgba(0,0,0,.25);border:1px solid var(--felt-lit);font-size:17px}
+.chips a:hover{border-color:var(--beer)}
+
+h1{font:700 clamp(44px,11vw,76px)/.95 var(--display);margin:34px 0 6px;overflow-wrap:anywhere}
+h2{font:700 30px/1.1 var(--display);margin:46px 0 14px}
+.standing{font-size:21px;color:var(--muted);margin:0}
+.standing strong{color:var(--ink);font-weight:600}
+.vip{color:var(--gold)}
+
+/* the seven-cup campaign rail */
+.rail{display:grid;grid-template-columns:repeat(var(--n,7),1fr);gap:clamp(4px,1.6vw,12px);margin:26px 0 6px;padding:0;list-style:none}
+.round{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.cup{width:100%;max-width:84px;aspect-ratio:1;border-radius:50%;position:relative;
+  background:radial-gradient(circle at 50% 50%,var(--beer) 0 50%,var(--foam) 51% 55%,var(--rim) 56% 64%,var(--cup) 65% 92%,var(--cup-dark) 93%);
+  box-shadow:0 5px 0 rgba(0,0,0,.35)}
+.cup::after{content:'';position:absolute;inset:16%;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),transparent 38%)}
+.round.cleared .cup{background:radial-gradient(circle,var(--cup-dark) 0 22%,var(--cup) 23% 70%,var(--rim) 71% 77%,var(--cup) 78% 92%,var(--cup-dark) 93%)}
+.round.cleared .cup::after{inset:30%;background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.35),transparent 50%)}
+.round.ahead .cup{background:none;border:2px dashed var(--faint);box-shadow:none}
+.round.ahead .cup::after{display:none}
+.round.current .cup{outline:3px solid var(--beer);outline-offset:4px}
+.vipdone .round.cleared .cup{box-shadow:0 0 0 3px var(--gold),0 5px 0 rgba(0,0,0,.35)}
+.round span{font-size:15px;color:var(--muted);white-space:nowrap}
+.round.current span{color:var(--ink);font-weight:600}
+@media (prefers-reduced-motion:no-preference){
+  .rail.drop .cup{animation:drop .42s cubic-bezier(.3,1.5,.6,1) both;animation-delay:calc(var(--i) * 70ms)}
+  @keyframes drop{from{transform:translateY(-18px) scale(.8);opacity:0}}
+}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px;margin:0;border-radius:10px;overflow:hidden}
+.stats div{background:rgba(0,0,0,.22);padding:12px 14px}
+.stats dt{font-size:16px;color:var(--muted)}
+.stats dd{margin:2px 0 0;font:700 34px/1 var(--body);font-variant-numeric:tabular-nums}
+.stats dd small{font-size:16px;font-weight:500;color:var(--muted)}
+.note{font-size:15px;color:var(--muted);margin:12px 0 0}
+
+/* collection */
+.count{font:600 21px var(--body);color:var(--muted);margin:-6px 0 18px}
+.count strong{color:var(--ink)}
+.sub{font:700 23px/1.1 var(--display);margin:36px 0 14px;color:var(--muted)}
+.balls{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:18px 10px;margin:0;padding:0;list-style:none}
+.ball{text-align:center;min-width:0}
+.ball .art{width:84px;height:84px;margin:0 auto 6px;border-radius:50%;display:grid;place-items:center}
+.ball img{width:84px;height:84px;object-fit:contain;display:block}
+.ball .plain{width:76px;height:76px;border-radius:50%;background:radial-gradient(circle at 34% 30%,#fff8 0 12%,transparent 40%),var(--c)}
+.ball b{display:block;font-weight:600;font-size:17px;line-height:1.15;overflow-wrap:anywhere}
+.ball small{display:block;font-size:14px;color:var(--rc,var(--muted))}
+.ball.missing .art{background:radial-gradient(circle at 50% 50%,#06150f 0 60%,transparent 61%)}
+.ball.missing img,.ball.missing .plain{filter:brightness(0) opacity(.55)}
+.ball.missing b{color:var(--faint);font-weight:500}
+.ball.missing small{color:var(--faint)}
+.ball .eq{display:inline-block;margin-top:3px;font-size:13px;color:#2a1606;background:var(--beer);border-radius:4px;padding:0 6px}
+.ball .cmd{display:inline-block;margin-top:4px;font:600 14px var(--body);color:var(--beer);background:rgba(0,0,0,.3);border:1px solid var(--felt-lit);border-radius:6px;padding:1px 7px;cursor:pointer}
+.ball .cmd:hover{border-color:var(--beer)}
+.equip-note{font-size:15px;color:var(--muted);margin:-8px 0 16px}
+
+/* leaderboards */
+.boards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:26px 30px}
+.boards h3{font:700 23px/1.1 var(--display);margin:0 0 8px}
+.boards ol{margin:0;padding:0 0 0 1.6em}
+.boards ul.plain{margin:0;padding:0;list-style:none}
+.boards li{padding:3px 0;font-size:18px}
+.boards li a{text-decoration:none}
+.boards li a:hover{text-decoration:underline}
+.boards li span{float:right;font-weight:600;font-variant-numeric:tabular-nums}
+.empty,.notice{background:rgba(0,0,0,.25);border-left:4px solid var(--beer);padding:16px 18px;border-radius:0 10px 10px 0;margin:30px 0}
+.empty p,.notice p{margin:0}
+.notice p + p{margin-top:6px;color:var(--muted)}
+code{font:600 18px var(--body);color:var(--beer)}
+.share{margin-top:14px;font:600 16px var(--body);color:var(--ink);background:none;border:1px solid var(--felt-lit);border-radius:8px;padding:6px 12px;cursor:pointer}
+footer{margin-top:60px;font-size:15px;color:var(--faint)}
+
+/* achievements */
+.achs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:0;padding:0;list-style:none}
+.ach{background:rgba(0,0,0,.22);border-radius:10px;padding:11px 13px 12px;border-left:4px solid var(--faint);min-width:0}
+.ach b{display:block;font-weight:600;font-size:18px;line-height:1.15;overflow-wrap:anywhere}
+.ach p{margin:3px 0 0;font-size:15px;line-height:1.3;color:var(--muted)}
+.ach .when{display:block;margin-top:6px;font-size:14px;color:var(--gold)}
+.ach.got{border-left-color:var(--gold);background:linear-gradient(90deg,rgba(255,202,104,.10),rgba(0,0,0,.22) 60%)}
+.ach.locked b{color:#c9d3cc}
+.bar{height:7px;border-radius:99px;background:rgba(0,0,0,.35);margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--beer);border-radius:99px}
+.role{display:inline-block;margin-top:6px;padding:2px 9px;border-radius:999px;font-size:14px;line-height:1.5;color:#c9cdff;background:rgba(88,101,242,.22);border:1px solid rgba(88,101,242,.55)}
+.ach .role{display:table}
+.rules.roles td small{display:block;margin-top:2px;font-size:14px;color:var(--muted)}
+.rules.roles td:last-child{font-variant-numeric:normal;color:var(--muted)}
+.rules.roles .role{margin-top:0;white-space:nowrap}
+.ach .of{display:block;margin-top:4px;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.group{font:700 20px/1.1 var(--display);margin:24px 0 10px;color:var(--muted)}
+/* how to play */
+.howlink{font:600 17px var(--body);text-decoration:none;color:#2a1606;background:var(--beer);border-radius:8px;padding:6px 12px;white-space:nowrap}
+.house .right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.teaser{display:flex;gap:16px;align-items:center;text-decoration:none;background:rgba(0,0,0,.25);border:1px solid var(--felt-lit);border-radius:12px;padding:12px;margin:26px 0 0}
+.teaser:hover{border-color:var(--beer)}
+.teaser img{width:84px;height:84px;object-fit:cover;object-position:top;border-radius:8px;flex:none}
+.teaser b{display:block;font:700 24px/1.1 var(--display)}
+.teaser span{color:var(--muted);font-size:16px}
+.guide h1{margin-top:30px}
+.guide .lede{font-size:21px;color:var(--muted);margin:6px 0 0}
+.guide h2{margin-top:40px}
+.guide p,.guide li{max-width:65ch}
+.guide ul,.guide ol{padding-left:1.3em}
+.guide li{margin:4px 0}
+.flyer{display:block;margin:24px 0 6px;border-radius:12px;overflow:hidden;border:1px solid var(--felt-lit);background:#000}
+.flyer img{display:block;width:100%;height:auto}
+.flyer-note{font-size:15px;color:var(--muted);margin:0}
+.rules{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:17px}
+.rules th,.rules td{text-align:left;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+.rules th{font-weight:600;color:var(--muted);font-size:15px}
+.rules td:last-child{font-variant-numeric:tabular-nums}
+.rules code{font-size:17px}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0;padding:0;list-style:none}
+.toc a{display:block;text-decoration:none;padding:5px 11px;border-radius:999px;background:rgba(0,0,0,.25);border:1px solid var(--felt-lit);font-size:16px}
+.toc a:hover{border-color:var(--beer)}
+@media (max-width:520px){
+  .rules.roles thead{display:none}.rules.roles tr{display:block;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)}.rules.roles td{display:block;border:0;padding:2px 0}.rules.roles td:nth-child(2){padding:5px 0}
+  body{font-size:17px}
+  .house .right{align-items:flex-start}
+  .rules{font-size:16px}.rules th,.rules td{padding:6px 6px}
+  .house{flex-direction:column;align-items:flex-start}
+  .updated{text-align:left;max-width:none}
+  .round span{font-size:13px}
+  .balls{grid-template-columns:repeat(3,1fr)}
+  .ball .art,.ball img{width:72px;height:72px}.ball .plain{width:64px;height:64px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="house">
+    <a href="#"><span aria-hidden="true">Σ</span><span>Trax House locker</span></a>
+    <div class="right"><a class="howlink" href="#how-to-play">How to play</a><p class="updated" id="updated" aria-live="polite">Loading…</p></div>
+  </header>
+  <form class="find" id="find" role="search">
+    <label for="q" class="sr" style="position:absolute;left:-9999px">Find a player</label>
+    <input id="q" list="names" autocomplete="off" spellcheck="false" placeholder="Find a player">
+    <datalist id="names"></datalist>
+    <button type="submit">Find</button>
+  </form>
+  <main id="view"></main>
+  <footer><span id="build" data-build="0.16.0-r16">Page build 0.16.0-r16.</span> Only viewers who typed <code>!pong public</code> in chat appear here. Type <code>!pong private</code> to leave; copies published earlier may remain online.</footer>
+</div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const view=$('view');
+let data=null;
+const OPP={solo:'Solo',stone:'Stone',brody:'Brody'}; // player pages name them; the How to play guide does not
+const day=ms=>new Date(ms).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+const RANK={Starter:0,Common:1,Uncommon:2,Rare:3,Epic:4,Legendary:5,Mythic:6}; // Mythic is the top tier
+// Achievements that earn a Discord server role (r14). Matched by id, so a renamed achievement still shows its current name.
+const ROLES=[
+  {id:'greek-god',name:'Greek God',role:'Greek God',why:'Your ultimate completionist distinction.'},
+  {id:'pong-wielder',name:'Pong Wielder',role:'Pong Wielder',why:'Recognizes collecting every original ball.'},
+  {id:'bid-accepted',name:'Frat Bro',role:'Frat Bro',why:'Discord recognition for completing the VIP campaign.'},
+  {id:'untouchable',name:'Ballamanjaro',role:'Ballamanjaro',why:'Seven cups in a row deserves a visible bragging right.'},
+  {id:'formation-conqueror',name:'Formation Conqueror',role:'Rack Conqueror',why:'A long-term gameplay accomplishment separate from collecting balls.'}];
+const roleFor=id=>ROLES.find(r=>r.id===id);
+const STATS=[
+  ['bestStreak','Best streak',true],['tablesCleared','Tables cleared',false],['stoneWins','Stone beaten',true],['brodyWins','Brody beaten',true],
+  ['cupsMade','Cups made',false],['shotsTaken','Shots',false],['bounceHits','Bounce makes',true],['casesOpened','Cases opened',false]];
+function h(tag,props,...kids){const e=document.createElement(tag);for(const [k,v] of Object.entries(props||{})){if(k==='text')e.textContent=v;else if(k==='class')e.className=v;else e.setAttribute(k,v);}for(const k of kids.flat(Infinity))if(k!=null&&k!==false)e.append(k);return e;}
+const hex=c=>/^#[0-9a-f]{6}$/i.test(c)?c:'#cccccc';
+const safeIcon=src=>typeof src==='string'&&/^icons\/[A-Z0-9]{1,6}(?:-[0-9a-f]{10})?\.png(?:\?v=[0-9a-f]{10})?$/.test(src)?src:null;
+const n=v=>Number.isFinite(v)?v.toLocaleString():'0';
+function ago(ms){const s=Math.max(0,(Date.now()-ms)/1000);if(s<90)return 'just now';const m=Math.round(s/60);if(m<60)return m+' minute'+(m===1?'':'s')+' ago';const hr=Math.round(m/60);if(hr<36)return hr+' hour'+(hr===1?'':'s')+' ago';const d=Math.round(hr/24);return d+' day'+(d===1?'':'s')+' ago';}
+function stamp(){ if(!data)return; $('updated').textContent=`Last updated ${ago(data.generatedAt)}. Updates ${data.updates?'within '+data.updates:'about every 10 minutes'} while TraxPong is running.`; }
+const find=name=>data.players.find(p=>p.name.toLowerCase()===String(name).toLowerCase());
+const link=p=>'#'+encodeURIComponent(p.name.toLowerCase());
+const collectible=()=>data.balls.filter(b=>b.collectible);
+const ownedCount=p=>collectible().filter(b=>p.owned.includes(b.id)).length;
+
+function ballArt(b){
+  const src=safeIcon(b.icon);
+  return h('div',{class:'art'},src?h('img',{src,alt:'',loading:'lazy',width:'84',height:'84'}):h('div',{class:'plain',style:'--c:'+hex(b.color)}));
+}
+function copyCmd(text){const b=h('button',{class:'cmd',type:'button',title:'Copy',text});b.onclick=async()=>{try{await navigator.clipboard.writeText(text);b.textContent='Copied';setTimeout(()=>b.textContent=text,1200);}catch{}};return b;}
+function rarityColor(id){const r=data.rarities.find(r=>r.id===id);return hex(r?r.color:'#9fb5a8');}
+
+function profile(p){
+  document.title=p.name+' · Trax House locker';
+  const g=data.game, wins=p.wins, total=g.vipTables;
+  const frag=document.createDocumentFragment();
+  frag.append(h('h1',{text:p.name}));
+  if(total>0){
+    const per=g.perGame||7, games=g.games||Math.ceil(total/per), need=g.vipMinStreams||0, after=g.after||[];
+    const done=p.vip||wins>=total, beaten=Math.min(Math.floor(wins/per),games), game=Math.floor(wins/per)+1, table=wins%per+1;
+    const pattern=k=>k<per||!after.length?g.rounds:after; // game 1 vs games 2+
+    const opp=pattern(wins)[wins%per]||'solo';
+    const where=[' Game ',h('strong',{text:String(game)}),', table '+table+(opp==='solo'?', solo. ':' against '),opp==='solo'?null:h('strong',{text:OPP[opp]||opp}),opp==='solo'?null:'. ',h('strong',{text:p.cupsLeft+' of 10'}),' cups left.'];
+    frag.append(h('p',{class:'standing'},p.vip
+      ? [h('strong',{class:'vip',text:'VIP earned.'}),where]
+      : wins>=total
+      ? [h('strong',{text:'VIP goal reached.'}),need?' VIP unlocks after '+need+' play days ('+Math.min(p.streams||0,need)+' so far).':'',where]
+      : [h('strong',{text:beaten+' of '+games}),' games beaten for VIP.',where,
+          need?h('span',{},' Play days: ',h('strong',{text:Math.min(p.streams||0,need)+' of '+need}),'.'):null]));
+    if(games>1){ // one cup per game
+      const gr=h('ol',{class:'rail drop'+(done?' vipdone':''),style:'--n:'+games,'aria-label':'Games beaten'});
+      for(let i=0;i<games;i++){const st=i<beaten||done?'cleared':i===beaten?'current':'ahead';
+        gr.append(h('li',{class:'round '+st,style:'--i:'+i,'aria-label':'Game '+(i+1)+': '+(st==='cleared'?'beaten':st==='current'?'in progress':'not reached yet')},h('div',{class:'cup','aria-hidden':'true'}),h('span',{'aria-hidden':'true',text:'Game '+(i+1)})));}
+      frag.append(h('h3',{class:'sub',text:done?'Every game beaten':'Games'}),gr);
+    }
+    if(!done){ // the tables of the current game
+      const inGame=wins%per, rail=h('ol',{class:'rail drop',style:'--n:'+per,'aria-label':'Tables in game '+game});
+      pattern(wins).slice(0,per).forEach((o,i)=>{
+        const state=i<inGame?'cleared':i===inGame?'current':'ahead';
+        const label=(OPP[o]||o)+', table '+(i+1)+': '+(state==='cleared'?'cleared':state==='current'?p.cupsLeft+' cups left':'not reached yet');
+        rail.append(h('li',{class:'round '+state,style:'--i:'+i,'aria-label':label},h('div',{class:'cup','aria-hidden':'true'}),h('span',{'aria-hidden':'true',text:OPP[o]||o})));
+      });
+      frag.append(h('h3',{class:'sub',text:'Game '+game+' tables'}),rail);
+    }
+  } else frag.append(h('p',{class:'standing'},h('strong',{text:n(wins)}),' tables cleared.'));
+
+  frag.append(h('h2',{text:'Stats'}));
+  const dl=h('dl',{class:'stats'}), s=p.stats||{};
+  for(const [key,label,partial] of STATS){
+    const dd=h('dd',{},n(s[key]));
+    if(key==='shotsTaken'&&s.shotsTaken>0)dd.append(' ',h('small',{text:Math.round(100*(s.cupsMade||0)/s.shotsTaken)+'% made'}));
+    dl.append(h('div',{},h('dt',{text:label+(p.partial&&partial?' *':'')}),dd));
+  }
+  frag.append(dl);
+  if(p.partial&&p.trackingSince){
+    const d=new Date(p.trackingSince).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+    frag.append(h('p',{class:'note',text:'* Older results may be incomplete; full tracking began '+d+'.'}));
+  }
+
+  const defs=data.achievements||[], mine=p.achievements||{};
+  if(defs.length){
+    const got=defs.filter(a=>mine[a.id]&&mine[a.id].at!==undefined);
+    frag.append(h('h2',{text:'Achievements'}));
+    frag.append(h('p',{class:'count'},h('strong',{text:got.length+' of '+defs.length}),' unlocked.'+(got.some(a=>mine[a.id].early)?' Some were earned before achievements existed.':'')));
+    const groups=[...new Set(defs.map(a=>a.group))];
+    for(const g of groups){
+      const list=h('ul',{class:'achs'});
+      for(const a of defs.filter(a=>a.group===g)){
+        const m=mine[a.id]||{}, won=m.at!==undefined;
+        const kids=[h('b',{text:a.name}),h('p',{text:a.desc})], role=roleFor(a.id);
+        if(role)kids.push(h('span',{class:'role',title:'Earning this gives you the '+role.role+' role on Discord',text:'Discord role: '+role.role}));
+        if(won)kids.push(h('span',{class:'when',text:m.early?'Unlocked before tracking began':m.at?'Unlocked '+day(m.at):'Unlocked'}));
+        else if(Number.isFinite(m.need)&&m.need>1){const pct=Math.max(0,Math.min(100,Math.round(100*(m.have||0)/m.need)));kids.push(h('div',{class:'bar','aria-hidden':'true'},h('i',{style:'width:'+pct+'%'})),h('span',{class:'of',text:n(m.have||0)+' of '+n(m.need)}));}
+        list.append(h('li',{class:'ach '+(won?'got':'locked'),'aria-label':a.name+(won?', unlocked':', locked')},kids));
+      }
+      frag.append(h('h3',{class:'group',text:g}),list);
+    }
+  }
+
+  const all=collectible(), have=ownedCount(p);
+  frag.append(h('h2',{text:'Collection'}));
+  frag.append(h('p',{class:'count'},h('strong',{text:have+' of '+all.length}),have===all.length?' collected. Every ball in the case.':' collected, '+(all.length-have)+' still to find.'));
+  const order=(a,b)=>(RANK[b.rarity]??0)-(RANK[a.rarity]??0)||a.name.localeCompare(b.name);
+  const grid=(balls,owned)=>{const list=h('ul',{class:'balls'});for(const b of balls)list.append(h('li',{class:'ball'+(owned?'':' missing'),style:'--rc:'+rarityColor(b.rarity)},
+      ballArt(b), h('b',{text:b.name}), h('small',{text:b.collectible?b.rarity:b.rarity+', retired'}),
+      owned&&p.equipped===b.id?h('span',{class:'eq',text:'Equipped'}):owned?copyCmd('!ball '+b.name):null));return list;};
+  frag.append(h('p',{class:'equip-note',text:'To use a ball, type its command in chat. Tap a command to copy it.'}));
+  frag.append(grid(data.balls.filter(b=>p.owned.includes(b.id)).sort(order),true));
+  const still=all.filter(b=>!p.owned.includes(b.id)).sort(order);
+  if(still.length)frag.append(h('h3',{class:'sub',text:'Still to find'}),grid(still,false));
+  const share=h('button',{class:'share',type:'button',text:'Copy link to this page'});
+  share.onclick=async()=>{try{await navigator.clipboard.writeText(location.href);share.textContent='Link copied';}catch{share.textContent=location.href;}};
+  frag.append(share);
+  view.replaceChildren(frag);
+}
+
+/* ---------- How to play: the flyer plus a written guide. Prices and counts come from data.rules, so they always match the game.
+   No odds and no opponent names on purpose (0.16.1). ---------- */
+const GUIDE='how-to-play';
+function guide(){
+  document.title='How to play · D.O.T.P.';
+  const r=data.rules||{}, g=data.game||{}, per=g.perGame||7, games=g.games||Math.ceil((g.vipTables||49)/per), tables=g.vipTables||per*games;
+  const rounds=g.rounds||[], solo=rounds.filter(o=>o==='solo').length, pts=v=>n(v)+' channel points';
+  const achCount=(data.achievements||[]).length, roughly=Math.max(10,Math.round(achCount/10)*10);
+  const sec=(id,title,...kids)=>h('section',{id:'how-'+id},h('h2',{text:title}),...kids);
+  const p=(...k)=>h('p',{},...k), c=t=>h('code',{text:t}), b=t=>h('strong',{text:t});
+  const rows=(head,list)=>h('table',{class:'rules'},h('thead',{},h('tr',{},head.map(x=>h('th',{scope:'col',text:x})))),h('tbody',{},list.map(row=>h('tr',{},row.map(x=>h('td',{},x))))));
+  const firstOpp=rounds.findIndex(o=>o&&o!=='solo');
+  const toc=[['start','Your first run'],['shoot','Calling your shot'],['tables','Tables, games and VIP'],['opponents','Challengers'],['cases','Ball cases'],['achievements','Achievements'],['page','Your page'],['commands','Commands']];
+  view.replaceChildren(h('article',{class:'guide'},
+    h('h1',{text:'D.O.T.P.'}),
+    h('p',{class:'lede',text:'Defender of the Pong: a beer pong game you play with channel points on stream. Score shots, clear tables, collect balls, and work your way into the house.'}),
+    h('ul',{class:'toc','aria-label':'On this page'},toc.map(([id,t])=>h('li',{},h('a',{href:'#'+GUIDE,'data-jump':'how-'+id,text:t})))),
+    h('a',{class:'flyer',href:'how-to-play.webp',target:'_blank',rel:'noopener'},h('img',{src:'how-to-play.webp',width:'1800',height:'3840',loading:'lazy',alt:'The D.O.T.P. flyer: how to play, tables and challengers, ball cases, and five achievements to chase. Everything on it is written out below.'})),
+    h('p',{class:'flyer-note',text:'Tap the flyer to open it full size. Everything on it is written out below too.'}),
+
+    sec('start','Your first run',
+      p('Redeem ',b('Take a Pong Shot'),r.shotCost?' ('+pts(r.shotCost)+')':'',' on Twitch. Your table shows up on stream when the queue reaches you, and your progress is saved between streams.'),
+      p(r.streakRuns!==false?'Every cup you sink earns another shot straight away. A miss ends the run. The cups you clear stay cleared, so your next run picks up where you left off.':'Each redemption is one shot. The cups you clear stay cleared, so your next shot picks up where you left off.'),
+      p('There are two ways to play:'),
+      h('ul',{},
+        h('li',{},b('Automatic'),' (the default): the game throws normal shots for you. Type ',c('!pong auto'),' to switch back to it.'),
+        h('li',{},b('Manual'),': type ',c('!pong manual'),' once, and from then on you pick the cup and the shot yourself.'))),
+
+    sec('shoot','Calling your shot (manual)',
+      p('When your turn comes up, chat tells you which cups are left. Then type:'),
+      rows(['Type','What it does'],[[c('!shoot 4'),'A normal shot at cup 4'],[c('!shoot 4 bounce'),'A bounce shot at cup 4']]),
+      r.bounceCups===2?p(b('A made bounce takes 2 cups'),': the one you aimed at and the cup next to it, like real beer pong. A bounce is a bit harder to sink than a normal shot, so pick your moment. With one cup left it takes just that cup.'):null,
+      p('Use the cup numbers shown on screen. They change as cups are removed.'+(r.turnSeconds?' You have '+r.turnSeconds+' seconds to choose. If the time runs out, the game throws a normal shot for you and plays the rest of that run automatically.':''))),
+
+    sec('tables','Tables, games and VIP',
+      p('A table is ',b('10 cups'),'. Clear all ten to beat it. ',b(per+' tables make a game'),', and beating ',b(games+' games'),' ('+tables+' tables in all) earns ',b('VIP'),'.'),
+      rounds.length?p(solo&&solo<rounds.length?'Game 1 starts with '+(solo===1?'a solo table':solo+' solo tables')+', then challengers step in, and it gets harder as you go. From game 2 on, every table has a challenger.':'Every game gets harder as you go.'):null,
+      p('After VIP the games keep going, so there is always another table.'),
+      r.saveOn?p('Now and then a miss turns into a ',b('Section Save'),': the ball clips one cup and drops into another. It can happen in either mode, but never on the last cup of a table.'):null),
+
+    sec('opponents','Challengers',
+      p((firstOpp>=0?'From table '+(firstOpp+1)+' of game 1, ':'On challenger tables, ')+'a challenger stands across the table. They are either ',b('watching'),' you or ',b('distracted'),', and the prompt on stream and in chat tells you which.'),
+      h('ul',{},
+        h('li',{},b('Distracted?'),' A good time to bounce.'),
+        h('li',{},b('Watching?'),' A bounce is much riskier, and if it misses they swat it away.'),
+        r.cocky?h('li',{},b('Cold streak?'),' After '+r.cocky+' runs in a row without a cup, they get cocky and stop watching until you sink one.'):null),
+      p('Whether they are watching never changes a normal shot.'+(r.bounceCups===2?'':' Solo tables have nobody across the table, so a bounce there is the same as a normal shot.'))),
+
+    sec('cases','Ball cases',
+      p('Redeem ',b('Open a Ball Case'),r.rollCost?' ('+pts(r.rollCost)+')':'',' to spin for a random ball. New balls go in your locker, and repeats count as duplicates for some achievements.'),
+      (r.rarities||[]).length?p('Balls come in '+r.rarities.length+' rarities: ',r.rarities.map((id,i)=>[i?(i===r.rarities.length-1?' and ':', '):'',h('strong',{style:'color:'+rarityColor(id),text:id})]),'. The rarer the ball, the less often it turns up.'):null,
+      p('Type ',c('!balls'),' to see the balls you own. To use one, type ',c('!ball'),' followed by its name, exactly as ',c('!balls'),' lists it. Your page here shows the full command under each ball you own. ',b('Balls are cosmetic only.'),' Rarity never makes a shot easier or harder.')),
+
+    sec('achievements','Achievements',
+      p('There are ',b('around '+roughly),' achievements, from your first shot to beating every game, plus a few for bad luck. They pop up on stream when you earn them, and the game keeps playing underneath. Type ',c('!achievements'),' for your count, your latest unlocks and your closest goals. Your page on this site lists every one, with your progress toward the rest.'),
+      p('Five achievements also earn a ',b('Discord server role'),':'),
+      h('table',{class:'rules roles'},h('thead',{},h('tr',{},['Achievement','Discord role','Why'].map(x=>h('th',{scope:'col',text:x})))),
+        h('tbody',{},ROLES.map(x=>{const a=(data.achievements||[]).find(d=>d.id===x.id);
+          return h('tr',{},h('td',{},h('strong',{text:a?a.name:x.name}),a&&a.desc?h('small',{text:a.desc}):null),h('td',{},h('span',{class:'role',text:x.role})),h('td',{text:x.why}));})))),
+
+    sec('page','Your page on this site',
+      p('Type ',c('!pong public'),' in chat to get a page here with your progress, stats, achievements and ball collection. It appears within '+(data.updates||'about 10 minutes')+' while the game is running. ',c('!pong page'),' sends your link again, and ',c('!pong private'),' takes you off at the next update. Copies published earlier may stay online for a while.'),
+      p('Only viewers who type ',c('!pong public'),' appear here.')),
+
+    sec('commands','Commands',
+      rows(['Type','What it does'],[
+        [c('!pong'),'Your table, VIP progress and stats'],[c('!pong auto'),'Automatic shots (the default)'],[c('!pong manual'),'Choose your own cup and shot'],
+        [c('!shoot 4'),'Normal shot at cup 4 (manual)'],[c('!shoot 4 bounce'),'Bounce shot at cup 4 (manual)'],
+        [c('!balls'),'Your ball collection'],[c('!ball'),'Then the name of a ball you own, to use it'],
+        [c('!achievements'),'Your achievements'],[c('!pong public'),'Get your page on this site'],[c('!pong page'),'Your page link'],[c('!pong private'),'Leave this site'],[c('!pong help'),'A link to this page']]))
+  ));
+  for(const a of view.querySelectorAll('[data-jump]'))a.addEventListener('click',ev=>{ev.preventDefault();document.getElementById(a.dataset.jump)?.scrollIntoView({behavior:'smooth',block:'start'});});
+}
+
+function missing(name){
+  document.title='Trax House locker';
+  view.replaceChildren(h('div',{class:'notice'},
+    h('p',{},h('strong',{text:name}),' hasn’t made their page public yet.'),
+    h('p',{},'They can type ',h('code',{text:'!pong public'}),' in chat. Their page appears within '+(data.updates||'about 10 minutes')+' while TraxPong is running.')));
+}
+
+function board(title,rows,ranked=true){
+  const sec=h('section',{},h('h3',{text:title}));
+  if(!rows.length){sec.append(h('p',{class:'note',text:'Nobody yet.'}));return sec;}
+  const ol=h(ranked?'ol':'ul',{class:ranked?'':'plain'});for(const [p,val] of rows)ol.append(h('li',{},h('a',{href:link(p),text:p.name}),val!=null?h('span',{text:val}):null));
+  sec.append(ol);return sec;
+}
+function home(){
+  document.title='Trax House locker';
+  const ps=data.players, frag=document.createDocumentFragment();
+  const teaser=h('a',{class:'teaser',href:'#'+GUIDE},h('img',{src:'how-to-play.webp',alt:'',width:'84',height:'84'}),h('div',{},h('b',{text:'New here? How to play'}),h('span',{text:'Runs, tables, VIP, challengers, ball cases and every command.'})));
+  if(!ps.length){
+    view.replaceChildren(teaser,h('div',{class:'empty'},h('p',{},'No public pages yet. Type ',h('code',{text:'!pong public'}),' in chat to add yours.')));return;
+  }
+  frag.append(teaser);
+  const chips=h('ul',{class:'chips','aria-label':'Public players'});
+  for(const p of ps)chips.append(h('li',{},h('a',{href:link(p),text:p.name})));
+  frag.append(chips);
+  const top=(fn,min=1)=>ps.map(p=>[p,fn(p)]).filter(([,v])=>v>=min).sort((a,b)=>b[1]-a[1]||a[0].name.localeCompare(b[0].name)).slice(0,5);
+  const total=collectible().length;
+  frag.append(h('h2',{text:'Around the house'}));
+  frag.append(h('div',{class:'boards'},
+    board('Longest streak',top(p=>p.stats.bestStreak,2).map(([p,v])=>[p,v+' in a row'])),
+    board('Most tables cleared',top(p=>p.stats.tablesCleared).map(([p,v])=>[p,n(v)])),
+    board('Top collectors',top(p=>ownedCount(p),2).map(([p,v])=>[p,v+' of '+total])),
+    ...((data.achievements||[]).length?[board('Most achievements',top(p=>Object.values(p.achievements||{}).filter(m=>m.at!==undefined).length).map(([p,v])=>[p,v+' of '+data.achievements.length]))]:[]),
+    board('VIP club',ps.filter(p=>p.vip).map(p=>[p,null]),false)));
+  frag.append(h('p',{class:'note'},'Want your own page? Type ',h('code',{text:'!pong public'}),' in chat.'));
+  view.replaceChildren(frag);
+}
+
+function route(keepSearch){
+  if(!data)return;
+  const name=decodeURIComponent(location.hash.slice(1)).trim();
+  if(!name){home();return;}
+  if(name.toLowerCase()===GUIDE){guide();return;} // Twitch names cannot contain '-', so this never hides a player
+  const p=find(name); if(p)profile(p); else missing(name);
+  if(!keepSearch)$('q').value='';
+}
+$('find').addEventListener('submit',ev=>{ev.preventDefault();const v=$('q').value.trim().replace(/^@/,'');if(!v)return;
+  const p=data&&data.players.find(p=>p.name.toLowerCase()===v.toLowerCase());location.hash=encodeURIComponent((p?p.name:v).toLowerCase());});
+window.addEventListener('hashchange',()=>{route();window.scrollTo(0,0);});
+
+async function load(first){
+  try{
+    const q=new URLSearchParams(location.search);q.set('t',Date.now());
+    const r=await fetch('data.json?'+q,{cache:'no-store'});if(!r.ok)throw Error(r.status);
+    const next=await r.json();
+    const changed=!data||next.generatedAt!==data.generatedAt; data=next;
+    $('names').replaceChildren(...data.players.map(p=>h('option',{value:p.name})));
+    // A background refresh redraws in place: same scroll position, and a half-typed search is kept.
+    if(first)route(); else if(changed){const y=window.scrollY;route(true);window.scrollTo(0,y);}
+    stamp();
+  }catch(e){ if(first){$('updated').textContent='The locker could not load. Try again in a minute.';} }
+}
+// New data is checked every minute while the page is open and visible (r16; Cloudflare updates about every 30 s).
+load(true); setInterval(stamp,30000); setInterval(()=>{if(!document.hidden)load(false);},60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load(false);});
+})();
+</script>
+</body>
+</html>
